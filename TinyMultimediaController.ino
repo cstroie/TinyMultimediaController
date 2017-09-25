@@ -4,11 +4,13 @@
 #define ROTARY_CLOCK  0
 #define ROTARY_DATA   2
 #define ROTARY_BUTTON 5
+#define ROTARY_LED    1
 
 // Prepare the bit masks
 byte bitClock   = _BV(ROTARY_CLOCK);
 byte bitData    = _BV(ROTARY_DATA);
 byte bitButton  = _BV(ROTARY_BUTTON);
+byte bitLed     = _BV(ROTARY_LED);
 byte bitRotMask = bitClock | bitData;
 
 // Button stuff
@@ -16,10 +18,15 @@ bool          btnDown     = false;  // Flag the button is pressed or not
 unsigned long btnMillis   = 0UL;    // Time of the last stable change
 unsigned long btnDebounce = 5UL;    // The debounce time to wait for
 unsigned long btnDuration = 0UL;    // The duration of the last action
-unsigned long btnLong     = 2000UL; // Long press duration
+unsigned long btnLong     = 1000UL; // Long press duration
 
 // Rotary stuff
 bool          rotActive   = false;  // Flag to know if it's rotating
+
+// LED stuff
+bool          ledLight    = false;  // Flag to know the LED is on of off
+unsigned long ledTimeout  = 0UL;    // The time when the LED turns off
+unsigned long ledDelay    = 100UL;  // Time delay after which the LED turns off
 
 /**
   Read the rotary encoder and return the rotating direction
@@ -40,32 +47,61 @@ byte readRotary() {
   // Do any action only when the rotary step is complete, that is both bits are one
   if (locked and (pinsNow == bitRotMask)) {
     locked = false;
-    if      (pinsLast == bitClock)  result = +1;
-    else if (pinsLast == bitData)   result = -1;
+    if      (pinsLast == bitClock)  result++;
+    else if (pinsLast == bitData)   result--;
   }
 
   // Keep current value
   pinsLast = pinsNow;
-  //DigiKeyboard.sendKeyStroke(10 + pinsNow); // G, H, K, L
 
   // Return the result
   return result;
 }
 
+/**
+  Send a keypress
+
+  @param key the key code to send
+*/
+void keySend(uint8_t key) {
+  // Turn the LED on
+  ledOn();
+  // Send the key
+  TrinketHidCombo.pressMultimediaKey(key);
+}
+
+/*
+  Turn the LED on and set the timeout
+*/
+void ledOn() {
+  if (!ledLight) {
+    ledLight = true;
+    PORTB |= bitLed;
+  }
+  ledTimeout = millis() + ledDelay;
+}
+
+/*
+  Check the timeout and turn the LED off
+
+  @param nowMillis cached millis()
+*/
+void ledOff(unsigned long nowMillis) {
+  if (ledLight and nowMillis > ledTimeout) {
+    ledLight = false;
+    PORTB &= ~bitLed;
+  }
+}
+
 void setup() {
   // Set the encoder and button pins to input
-  pinMode(ROTARY_BUTTON,  INPUT);
+  pinMode(ROTARY_BUTTON,  INPUT_PULLUP);
   pinMode(ROTARY_CLOCK,   INPUT);
   pinMode(ROTARY_DATA,    INPUT);
 
-  //pinMode(1,OUTPUT);
-  //digitalWrite(1, LOW);
-
-  // Turn on pullup resistors
-  //PORTB |= bitButton;
-  digitalWrite(ROTARY_BUTTON, HIGH);
-  //digitalWrite(ROTARY_CLOCK, HIGH);
-  //digitalWrite(ROTARY_DATA, HIGH);
+  // Set the LED pin to output and flash it
+  pinMode(ROTARY_LED,    OUTPUT);
+  ledOn();
 
   // Start the USB device engine and enumerate
   TrinketHidCombo.begin();
@@ -114,27 +150,15 @@ void loop() {
   // Do the actions
   if (btnDown) {
     // The button is down, check if there is any rotation
-    if (rotDirection > 0) {
-      // Next
-      TrinketHidCombo.pressMultimediaKey(MMKEY_SCAN_NEXT_TRACK);
-    }
-    else if (rotDirection < 0) {
-      // Prev
-      TrinketHidCombo.pressMultimediaKey(MMKEY_SCAN_PREV_TRACK);
-    }
+    if      (rotDirection > 0) keySend(MMKEY_SCAN_NEXT_TRACK);  // Next
+    else if (rotDirection < 0) keySend(MMKEY_SCAN_PREV_TRACK);  // Prev
   }
   else {
     // Check if the button was down and for how long
     if (btnDuration > 0UL) {
       if (not rotActive) {
-        if (btnDuration > btnLong) {
-          // Long press STOP
-          TrinketHidCombo.pressMultimediaKey(MMKEY_STOP);
-        }
-        else {
-          // Short press PLAY/PAUSE
-          TrinketHidCombo.pressMultimediaKey(MMKEY_PLAYPAUSE);
-        }
+        if (btnDuration > btnLong)  keySend(MMKEY_STOP);        // Long press STOP
+        else                        keySend(MMKEY_PLAYPAUSE);   // Short press PLAY/PAUSE
       }
       else
         // Reset the rotation flag
@@ -144,14 +168,11 @@ void loop() {
     }
     else {
       // The button was up, check if there is any rotation
-      if (rotDirection > 0) {
-        // VolUp
-        TrinketHidCombo.pressMultimediaKey(MMKEY_VOL_UP);
-      }
-      else if (rotDirection < 0)  {
-        // VolDn
-        TrinketHidCombo.pressMultimediaKey(MMKEY_VOL_DOWN);
-      }
+      if      (rotDirection > 0)  keySend(MMKEY_VOL_UP);        // VolUp
+      else if (rotDirection < 0)  keySend(MMKEY_VOL_DOWN);      // VolDn
     }
   }
+
+  // Turn the LED off, if timed out
+  ledOff(nowMillis);
 }

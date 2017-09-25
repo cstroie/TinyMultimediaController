@@ -26,7 +26,7 @@ bool          rotActive   = false;  // Flag to know if it's rotating
 // LED stuff
 bool          ledLight    = false;  // Flag to know the LED is on of off
 unsigned long ledTimeout  = 0UL;    // The time when the LED turns off
-unsigned long ledDelay    = 100UL;  // Time delay after which the LED turns off
+unsigned long ledDelay    = 20UL;   // Time delay after which the LED turns off
 
 /**
   Read the rotary encoder and return the rotating direction
@@ -99,9 +99,10 @@ void setup() {
   pinMode(ROTARY_CLOCK,   INPUT);
   pinMode(ROTARY_DATA,    INPUT);
 
-  // Set the LED pin to output and flash it
+  // Set the LED pin to output and flash it longer
   pinMode(ROTARY_LED,    OUTPUT);
   ledOn();
+  ledTimeout += ledDelay;
 
   // Start the USB device engine and enumerate
   TrinketHidCombo.begin();
@@ -170,6 +171,8 @@ void loop() {
       // The button was up, check if there is any rotation
       if      (rotDirection > 0)  keySend(MMKEY_VOL_UP);        // VolUp
       else if (rotDirection < 0)  keySend(MMKEY_VOL_DOWN);      // VolDn
+      // Reset the rotation flag
+      rotActive = false;
     }
   }
 

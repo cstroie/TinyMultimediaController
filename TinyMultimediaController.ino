@@ -6,9 +6,9 @@
 #define ROTARY_BUTTON 5
 
 // Prepare the bit masks
-byte bitClock   = 1 << ROTARY_CLOCK;
-byte bitData    = 1 << ROTARY_DATA;
-byte bitButton  = 1 << ROTARY_BUTTON;
+byte bitClock   = _BV(ROTARY_CLOCK);
+byte bitData    = _BV(ROTARY_DATA);
+byte bitButton  = _BV(ROTARY_BUTTON);
 byte bitRotMask = bitClock | bitData;
 
 // Button stuff

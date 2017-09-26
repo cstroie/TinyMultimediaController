@@ -14,14 +14,15 @@ byte bitLed     = _BV(ROTARY_LED);
 byte bitRotMask = bitClock | bitData;
 
 // Button stuff
-bool          btnDown     = false;  // Flag the button is pressed or not
-unsigned long btnMillis   = 0UL;    // Time of the last stable change
-unsigned long btnDebounce = 5UL;    // The debounce time to wait for
-unsigned long btnDuration = 0UL;    // The duration of the last action
-unsigned long btnLong     = 1000UL; // Long press duration
+bool          btnDown       = false;  // Flag the button is pressed or not
+unsigned long btnMillis     = 0UL;    // Time of the last stable change
+unsigned long btnDebounce   = 5UL;    // The debounce time to wait for
+unsigned long btnDuration   = 0UL;    // The duration of the last action
+unsigned long btnLongPress  = 1000UL; // Long press duration
+bool          btnLongSent   = false;  // Flag the long press action was sent or not
 
 // Rotary stuff
-bool          rotActive   = false;  // Flag to know if it's rotating
+bool          mixed       = false;  // Flag to know if it's pressed and rotating
 
 // LED stuff
 bool          ledLight    = false;  // Flag to know the LED is on of off
@@ -119,60 +120,79 @@ void loop() {
   if (PINB & bitButton) {
     // Button is up, check if it should have been down
     if (btnDown) {
-      // It should have been down, check if this a real action
-      if (btnMillis + btnDebounce > nowMillis) {
-        // It's unstable, increase the time and flag it is not an action
-        btnMillis = nowMillis;
-        btnDuration = 0UL;
-      }
-      else {
+      // It should have been down, check bouncing
+      if (btnMillis + btnDebounce < nowMillis) {
         // This is an action, keep the duration of the action
         btnDuration = nowMillis - btnMillis;
         btnDown = false;
         // And keep the time the button came up
         btnMillis = nowMillis;
       }
+      else {
+        // It's unstable, increase the time and flag it is not an action
+        btnMillis = nowMillis;
+        btnDuration = 0UL;
+      }
     }
   }
   else {
-    // Button is down, check if it should have been up
-    if (!btnDown and btnMillis + btnDebounce < nowMillis) {
-      // Flag the button is down and keep the time
-      btnDown = true;
-      btnMillis = nowMillis;
-      btnDuration = 0UL;
+    // Button is down, check if it should have been down
+    if (btnDown) {
+      // The button is pressed down, keep the duration
+      btnDuration = nowMillis - btnMillis;
+    }
+    else {
+      // The button was up, check bouncing
+      if (btnMillis + btnDebounce < nowMillis) {
+        // Debounced, flag the button is down and keep the time
+        btnDown = true;
+        btnMillis = nowMillis;
+        btnDuration = 0UL;
+      }
     }
   }
 
   // Check the rotary
   char rotDirection = readRotary();
-  if (rotDirection != 0) rotActive = true;
+  if (rotDirection != 0) mixed = true;
 
-  // Do the actions
+  // Do the actions, check if the button is down or up
   if (btnDown) {
     // The button is down, check if there is any rotation
-    if      (rotDirection > 0) keySend(MMKEY_SCAN_NEXT_TRACK);  // Next
-    else if (rotDirection < 0) keySend(MMKEY_SCAN_PREV_TRACK);  // Prev
+    if      (rotDirection > 0) keySend(MMKEY_SCAN_NEXT_TRACK);    // Next
+    else if (rotDirection < 0) keySend(MMKEY_SCAN_PREV_TRACK);    // Prev
+    else {
+      // The button is down and not rotating
+      if (!mixed and !btnLongSent and btnDuration > btnLongPress) {
+        // The button is long pressed down, no rotation since, no key sent yet
+        btnLongSent = true;
+        keySend(MMKEY_STOP);                                      // Stop (long press)
+      }
+    }
   }
   else {
-    // Check if the button was down and for how long
+    // The button is up, check if it was down and for how long
     if (btnDuration > 0UL) {
-      if (not rotActive) {
-        if (btnDuration > btnLong)  keySend(MMKEY_STOP);        // Long press STOP
-        else                        keySend(MMKEY_PLAYPAUSE);   // Short press PLAY/PAUSE
+      // The button was down, check whether it was rotating
+      if (mixed) {
+        // The button was down and rotating, now it is up, so forget any mixed action
+        mixed = false;
       }
-      else
-        // Reset the rotation flag
-        rotActive = false;
+      else {
+        // No rotating, just pressed down
+        if (btnDuration < btnLongPress) keySend(MMKEY_PLAYPAUSE); // PLAY/PAUSE (short press)
+      }
       // Reset the press duration
       btnDuration = 0UL;
+      // Reset any the long press action flag
+      btnLongSent = false;
     }
     else {
-      // The button was up, check if there is any rotation
-      if      (rotDirection > 0)  keySend(MMKEY_VOL_UP);        // VolUp
-      else if (rotDirection < 0)  keySend(MMKEY_VOL_DOWN);      // VolDn
-      // Reset the rotation flag
-      rotActive = false;
+      // The button was up and is up, check if there is any rotation
+      if      (rotDirection > 0)  keySend(MMKEY_VOL_UP);          // VolUp
+      else if (rotDirection < 0)  keySend(MMKEY_VOL_DOWN);        // VolDn
+      // No mixed action
+      mixed = false;
     }
   }
 

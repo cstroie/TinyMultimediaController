@@ -88,7 +88,7 @@ void ledOn() {
   @param nowMillis cached millis()
 */
 void ledOff(unsigned long nowMillis) {
-  if (ledLight and nowMillis > ledTimeout) {
+  if (ledLight and (nowMillis > ledTimeout)) {
     ledLight = false;
     PORTB &= ~bitLed;
   }

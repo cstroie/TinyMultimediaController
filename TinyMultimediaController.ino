@@ -1,3 +1,25 @@
+/**
+  TinyMultimediaController - Multimedia controller using a Digispark 
+                             (Attiny85) and a rotary encoder
+
+  Copyright (C) 2018 Costin STROIE <costinstroie@eridu.eu.org>
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// Wee need the Trinket library from here:
+// https://learn.adafruit.com/trinket-usb-volume-knob/code
 #include "TrinketHidCombo.h"
 
 // Attiny85 pins
@@ -22,17 +44,17 @@ unsigned long btnLongPress  = 1000UL; // Long press duration
 bool          btnLongSent   = false;  // Flag the long press action was sent or not
 
 // Rotary stuff
-bool          mixed       = false;  // Flag to know if it's pressed and rotating
+bool          mixed       = false;  // Flag for the knob rotating while pressed down
 
 // LED stuff
-bool          ledLight    = false;  // Flag to know the LED is on of off
-unsigned long ledTimeout  = 0UL;    // The time when the LED turns off
+bool          ledLight    = false;  // Status flag for the LED (on or off)
+unsigned long ledTimeout  = 0UL;    // The time when the LED will turn off
 unsigned long ledDelay    = 20UL;   // Time delay after which the LED turns off
 
 /**
   Read the rotary encoder and return the rotating direction
 
-  @return the rotating direction
+  @return the rotating direction, positive is CW, negative is CCW
 */
 byte readRotary() {
   byte        pinsNow   = PINB & bitRotMask;  // Current value of the pins
@@ -60,7 +82,7 @@ byte readRotary() {
 }
 
 /**
-  Send a keypress
+  Send a media keypress
 
   @param key the key code to send
 */

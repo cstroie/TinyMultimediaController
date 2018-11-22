@@ -1,6 +1,6 @@
 /**
   TinyMultimediaController - Multimedia controller using a Digispark 
-                             (Attiny85) and a rotary encoder
+                             (ATtiny85) and a rotary encoder
 
   Copyright (C) 2018 Costin STROIE <costinstroie@eridu.eu.org>
 
